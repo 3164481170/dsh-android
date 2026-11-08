@@ -1,8 +1,8 @@
 # Android 真机验证脚本
 
-`scripts` 目录下三个文件，用于反复验证 `com.dsh.runner` 在 OnePlus 8（Android 12 / arm64，序列号 `b82a026f`）上的安装与启动。
+`scripts` 目录下三个文件，用于反复验证 `com.dsh.runner` 在 OnePlus 8（Android 12 / arm64，序列号 `<你的设备序列号>`）上的安装与启动。
 
-> adb 不在 PATH：`C:\Program Files\ASUS\GlideX\adb.exe`。脚本已内置该路径，可用 `-Adb` 覆盖。
+> adb 不在 PATH：`adb`。脚本已内置该路径，可用 `-Adb` 覆盖。
 
 ## 1. verify-apk.ps1 —— 装包 → 启动 → 等服务 → PC 端验证
 
@@ -23,8 +23,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\verify-apk.ps1 -DryRun
 | --- | --- | --- |
 | `-TimeoutMin` | 15 | 等待 `server.url` 出现的最长分钟数（首装建议 25-30） |
 | `-ApkPath` | `E:\dsh-android\app\app\build\outputs\apk\debug\app-debug.apk` | 待装 APK |
-| `-Serial` | `b82a026f` | 设备序列号 |
-| `-Adb` | `C:\Program Files\ASUS\GlideX\adb.exe` | adb 可执行文件 |
+| `-Serial` | `<你的设备序列号>` | 设备序列号 |
+| `-Adb` | `adb` | adb 可执行文件 |
 | `-Package` / `-Activity` | `com.dsh.runner` / `com.dsh.runner/.MainActivity` | 包与入口 |
 | `-DevicePort` / `-LocalPort` | 61374 / 16137 | adb forward 映射 |
 | `-PollSec` | 20 | 轮询间隔秒数 |
@@ -54,7 +54,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\verify-apk.ps1 -DryRun
 验证通过后 token 不打印，用脚本给出的这行命令复制到剪贴板，再在 PC 浏览器打开：
 
 ```powershell
-$u = (& "C:\Program Files\ASUS\GlideX\adb.exe" -s b82a026f shell run-as com.dsh.runner cat files/server.url).Trim(); ($u -replace ':61374', ':16137') | Set-Clipboard
+$u = (& "adb" -s <你的设备序列号> shell run-as com.dsh.runner cat files/server.url).Trim(); ($u -replace ':61374', ':16137') | Set-Clipboard
 ```
 
 ## 2. shot.ps1 —— 截屏看界面
@@ -73,7 +73,7 @@ pwsh -NoProfile -File .\shot.ps1 -Open      # 截完直接打开
 下面命令里用 `$A` 代表 adb 全路径：
 
 ```powershell
-$A = "C:\Program Files\ASUS\GlideX\adb.exe"
+$A = "adb"
 ```
 
 ### 3.1 应用崩溃（一启动就没进程）
@@ -81,10 +81,10 @@ $A = "C:\Program Files\ASUS\GlideX\adb.exe"
 现象：PHASE=fail，`pidof` 为空，logcat 有 `FATAL EXCEPTION`。
 
 ```powershell
-& $A -s b82a026f logcat -d -b crash
-& $A -s b82a026f logcat -d -s DshRunner:V
-& $A -s b82a026f shell run-as com.dsh.runner tail -n 100 files/logs/server.log
-& $A -s b82a026f shell run-as com.dsh.runner ls -l files/usr/bin files/usr/lib
+& $A -s <你的设备序列号> logcat -d -b crash
+& $A -s <你的设备序列号> logcat -d -s DshRunner:V
+& $A -s <你的设备序列号> shell run-as com.dsh.runner tail -n 100 files/logs/server.log
+& $A -s <你的设备序列号> shell run-as com.dsh.runner ls -l files/usr/bin files/usr/lib
 ```
 
 常见根因：
@@ -98,9 +98,9 @@ $A = "C:\Program Files\ASUS\GlideX\adb.exe"
 现象：日志停在「解包 bootstrap…」「安装运行时…」「安装 dsh（首次较慢）…」，`server.url` 还没出现。
 
 ```powershell
-& $A -s b82a026f shell run-as com.dsh.runner tail -n 20 files/logs/server.log
-& $A -s b82a026f shell run-as com.dsh.runner du -sh files/usr files/home
-& $A -s b82a026f shell df -h /data
+& $A -s <你的设备序列号> shell run-as com.dsh.runner tail -n 20 files/logs/server.log
+& $A -s <你的设备序列号> shell run-as com.dsh.runner du -sh files/usr files/home
+& $A -s <你的设备序列号> shell df -h /data
 ```
 
 首装解包 Termux 运行时 + 安装 dsh 在真机上 5-10 分钟属正常。做法：
@@ -114,10 +114,10 @@ $A = "C:\Program Files\ASUS\GlideX\adb.exe"
 现象：`server.log` 里出现 `ENOTFOUND` / `EAI_AGAIN` / `ETIMEDOUT` / `ECONNREFUSED` / `npm ERR!` / `self-signed certificate`。
 
 ```powershell
-& $A -s b82a026f shell run-as com.dsh.runner tail -n 120 files/logs/server.log
-& $A -s b82a026f shell ping -c 3 registry.npmjs.org
-& $A -s b82a026f shell settings get global http_proxy
-& $A -s b82a026f shell run-as com.dsh.runner cat files/home/.npmrc
+& $A -s <你的设备序列号> shell run-as com.dsh.runner tail -n 120 files/logs/server.log
+& $A -s <你的设备序列号> shell ping -c 3 registry.npmjs.org
+& $A -s <你的设备序列号> shell settings get global http_proxy
+& $A -s <你的设备序列号> shell run-as com.dsh.runner cat files/home/.npmrc
 ```
 
 做法：
@@ -133,9 +133,9 @@ $A = "C:\Program Files\ASUS\GlideX\adb.exe"
 
 ```powershell
 .\shot.ps1 -Open
-& $A -s b82a026f logcat -d -s chromium:V | Select-Object -Last 60
-& $A -s b82a026f shell run-as com.dsh.runner cat files/server.url
-& $A -s b82a026f forward tcp:16137 tcp:61374
+& $A -s <你的设备序列号> logcat -d -s chromium:V | Select-Object -Last 60
+& $A -s <你的设备序列号> shell run-as com.dsh.runner cat files/server.url
+& $A -s <你的设备序列号> forward tcp:16137 tcp:61374
 ```
 
 判断顺序：
@@ -148,13 +148,13 @@ $A = "C:\Program Files\ASUS\GlideX\adb.exe"
 ## 4. 其他常用命令
 
 ```powershell
-& $A -s b82a026f shell dumpsys activity services com.dsh.runner     # 前台服务是否在跑
-& $A -s b82a026f shell dumpsys window | Select-String mCurrentFocus # 当前前台窗口
-& $A -s b82a026f forward --list                                     # 现有端口映射
-& $A -s b82a026f forward --remove tcp:16137                         # 清理映射
-& $A -s b82a026f shell am force-stop com.dsh.runner                 # 强杀，重新开始
-& $A -s b82a026f uninstall com.dsh.runner                           # 彻底清掉私有目录
-& $A -s b82a026f shell pm path com.dsh.runner                       # 确认安装路径
+& $A -s <你的设备序列号> shell dumpsys activity services com.dsh.runner     # 前台服务是否在跑
+& $A -s <你的设备序列号> shell dumpsys window | Select-String mCurrentFocus # 当前前台窗口
+& $A -s <你的设备序列号> forward --list                                     # 现有端口映射
+& $A -s <你的设备序列号> forward --remove tcp:16137                         # 清理映射
+& $A -s <你的设备序列号> shell am force-stop com.dsh.runner                 # 强杀，重新开始
+& $A -s <你的设备序列号> uninstall com.dsh.runner                           # 彻底清掉私有目录
+& $A -s <你的设备序列号> shell pm path com.dsh.runner                       # 确认安装路径
 ```
 
 ## 5. 注意

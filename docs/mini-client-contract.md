@@ -62,7 +62,7 @@ Content-Type: application/json
   "updatedAt": 1794153254684,
   "running": false,
   "blank": false,
-  "cwd": "E:\\deepseekharness工作区\\正在使用",
+  "cwd": "<工作区路径>",
   "projections": { "values": {
       "title": "dsh安卓运行可行性探讨",
       "tokenUsage": { "uncachedInputTokens": 474559, "outputTokens": 266113, "cacheReadTokens": 75632384 }

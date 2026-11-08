@@ -40,8 +40,8 @@
 param(
     [ValidateRange(1, 240)][int]$TimeoutMin = 15,
     [string]$ApkPath = 'E:\dsh-android\app\app\build\outputs\apk\debug\app-debug.apk',
-    [string]$Serial = 'b82a026f',
-    [string]$Adb = 'C:\Program Files\ASUS\GlideX\adb.exe',
+    [string]$Serial = '',
+    [string]$Adb = 'adb',
     [string]$Package = 'com.dsh.runner',
     [string]$Activity = 'com.dsh.runner/.MainActivity',
     [int]$DevicePort = 61374,
@@ -553,7 +553,7 @@ if ($DryRun) { Write-Host 'mode     : DRY-RUN（不安装、不启动）' -Foreg
 # --- 前置检查
 if (-not (Test-AdbAvailable)) {
     Fail-Run ('找不到 adb：' + $script:AdbBin) @(
-        'adb 路径不对：用 -Adb 指向实际 adb.exe（本机默认在 C:\Program Files\ASUS\GlideX\adb.exe）。',
+        'adb 路径不对：用 -Adb 指向实际 adb 可执行文件，或把 adb 放进 PATH。',
         'adb 被安全软件拦截或文件被移走：重新确认路径后重跑。',
         '想用别处的 adb：改成 -Adb "C:\android-sdk\platform-tools\adb.exe"。'
     ) 2

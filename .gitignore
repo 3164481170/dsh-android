@@ -10,6 +10,13 @@ app/app/src/main/assets/bootstrap.zip
 app/app/src/main/assets/npm.zip
 app/app/src/main/assets/purge/
 
+# ---------- 本地专用载荷（不随仓库分发）----------
+# dsh-purge 插件包与注入文本、其安装脚本；需要时自行放入同名路径
+assets-src/
+app/app/src/main/assets/prompt-inject.md
+app/app/src/main/assets/purge-install.sh
+patches/purge-install.sh
+
 # ---------- 下载 / 解包中间产物 ----------
 dist/
 t/

@@ -25,8 +25,8 @@
 [CmdletBinding()]
 param(
     [string]$OutDir = 'E:\dsh-android\shots',
-    [string]$Serial = 'b82a026f',
-    [string]$Adb = 'C:\Program Files\ASUS\GlideX\adb.exe',
+    [string]$Serial = '',
+    [string]$Adb = 'adb',
     [switch]$Open
 )
 

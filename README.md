@@ -74,7 +74,7 @@ adb install -r -g app-debug.apk
 3. 改写 Termux 写死的前缀路径，重建符号链接，修权限
 4. `npm i -g @deepseek-ai/dsh`
 5. 跑 `patches/dsh-android-fix.sh`（4 项兼容补丁，幂等）
-6. 跑 `patches/purge-install.sh`（dsh-purge 载荷，幂等）
+6. 若本地放入了自定义载荷（见下）则运行；仓库不带载荷，缺省直接跳过
 7. 建工作区 `/sdcard/DSH/workspace` 并软链 `$HOME/默认`
 8. 启动 `dsh web`，把带 token 的地址写进 `files/server.url`
 
@@ -87,10 +87,24 @@ app/                    Gradle 工程（Java，无 Kotlin）
     ServerService.java  前台服务，拉起并守护 node
     MainActivity.java   WebView 壳 + 三档界面选择
   app/src/main/assets/  大资产由 scripts/fetch-runtime.sh 生成
-assets-src/             dsh-purge 载荷源（prompt-inject.md + purge/）
+assets-src/             本地扩展载荷源（不分发，见「本地扩展」）
 patches/                运行时补丁脚本
 docs/                   协议文档、移植笔记
 scripts/                取运行时、APK 验证、截图
+```
+
+## 本地扩展（不随仓库分发）
+
+应用支持在启动时加载一份本地载荷（`assets-src/`、`assets/prompt-inject.md`、`assets/purge-install.sh`），
+用于打自己的运行时定制补丁。这些路径已在 `.gitignore` 中排除，仓库里不含任何载荷内容；
+缺失时安装流程会打印「跳过」并继续，不影响启动。
+
+需要时把载荷放到对应路径再构建即可，接口约定是：
+
+```
+assets-src/purge/          载荷包目录
+assets-src/prompt-inject.md 注入文本
+patches/purge-install.sh   安装脚本（幂等，支持 --assets/--prefix/--home/--quiet）
 ```
 
 ## 已知限制
