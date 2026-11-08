@@ -1,0 +1,57 @@
+{
+  "tool": "verify-apk.ps1",
+  "startedAt": "2026-11-08T23:33:02.2192305+08:00",
+  "endedAt": "2026-11-08T23:33:02.3528295+08:00",
+  "elapsedSec": 0,
+  "phase": "dryrun",
+  "ok": true,
+  "timeoutMin": 15,
+  "apk": {
+    "path": "E:\\dsh-android\\app\\app\\build\\outputs\\apk\\debug\\app-debug.apk",
+    "exists": true,
+    "sizeMB": 69.6,
+    "lastWrite": "2026-11-08 23:31:02"
+  },
+  "install": {
+    "skipped": false,
+    "pushOk": false,
+    "output": "",
+    "seconds": 0
+  },
+  "start": {
+    "command": "",
+    "output": "",
+    "ok": false
+  },
+  "wait": {
+    "attempts": 0,
+    "urlSeen": false,
+    "appPid": 0
+  },
+  "server": {
+    "deviceUrl": "",
+    "tokenLength": 0,
+    "port": 61374
+  },
+  "http": {
+    "status": 0,
+    "location": "",
+    "engine": "",
+    "bareStatus": 0
+  },
+  "keyLogLines": [],
+  "reasons": [],
+  "diagnostics": [
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f devices -l",
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f logcat -d -s DshRunner:V",
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f logcat -d -b crash",
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f shell run-as com.dsh.runner tail -n 80 files/logs/server.log",
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f shell run-as com.dsh.runner cat files/server.url",
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f shell run-as com.dsh.runner ls -l files/usr/bin",
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f shell pidof com.dsh.runner",
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f shell dumpsys activity services com.dsh.runner",
+    "& \"C:\\Program Files\\ASUS\\GlideX\\adb.exe\" -s b82a026f shell df -h /data",
+    "powershell -NoProfile -ExecutionPolicy Bypass -File .\\shot.ps1 -Serial b82a026f"
+  ],
+  "timeline": []
+}

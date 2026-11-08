@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>DSH</title>
+<style>
+  :root{--bg:#0f1115;--bg2:#161a20;--line:#242a33;--fg:#e6e8eb;--dim:#8b929c;--acc:#4c8dff;--ok:#39c07a;--err:#ff5d5d}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:15px/1.5 -apple-system,"Noto Sans SC",system-ui,sans-serif}
+  #app{display:flex;flex-direction:column;height:100%}
+  header{display:flex;align-items:center;gap:10px;padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;border-bottom:1px solid var(--line);background:var(--bg2)}
+  header .t{font-weight:600;font-size:15px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  header button{background:none;border:0;color:var(--acc);font-size:14px;padding:6px 8px}
+  #list{flex:1;overflow-y:auto;padding:10px}
+  .row{padding:12px;border-radius:10px;background:var(--bg2);margin-bottom:8px;border:1px solid var(--line)}
+  .row .tt{font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .mt{font-size:12px;color:var(--dim);margin-top:4px;display:flex;gap:10px}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;background:var(--dim)}
+  .dot.run{background:var(--ok)}
+  #chat{flex:1;overflow-y:auto;padding:12px 12px 4px}
+  .msg{margin:0 0 12px;max-width:100%}
+  .msg.user{display:flex;justify-content:flex-end}
+  .msg.user .bd{background:#1d3a63;border-radius:12px 12px 2px 12px;padding:9px 12px;max-width:85%;white-space:pre-wrap;word-break:break-word}
+  .msg.bot .bd{white-space:pre-wrap;word-break:break-word}
+  .tool{border:1px solid var(--line);background:var(--bg2);border-radius:8px;padding:8px 10px;margin:6px 0;font-size:13px;color:var(--dim)}
+  .tool .nm{color:var(--fg);font-weight:500}
+  .tool pre{margin:6px 0 0;white-space:pre-wrap;word-break:break-all;font:12px/1.4 ui-monospace,monospace;color:#b9c0c9;max-height:180px;overflow:auto}
+  .sys{text-align:center;color:var(--dim);font-size:12px;margin:10px 0}
+  .err{color:var(--err)}
+  footer{border-top:1px solid var(--line);background:var(--bg2);padding:8px 10px calc(env(safe-area-inset-bottom) + 8px);display:flex;gap:8px;align-items:flex-end}
+  #in{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--fg);padding:10px 12px;font:15px/1.4 inherit;resize:none;max-height:120px;min-height:42px}
+  #send{background:var(--acc);border:0;color:#fff;border-radius:10px;padding:10px 16px;font-size:15px;font-weight:600}
+  #send:disabled{opacity:.45}
+  #stop{background:none;border:1px solid var(--line);color:var(--dim);border-radius:10px;padding:10px 12px}
+  .hide{display:none!important}
+  .empty{color:var(--dim);text-align:center;padding:40px 20px;font-size:14px}
+</style></head>
+<body><div id="app">
+  <header>
+    <button id="back" class="hide">‹ 会话</button>
+    <div class="t" id="title">DeepSeek Harness</div>
+    <button id="new">＋</button>
+  </header>
+  <div id="list"></div>
+  <div id="chat" class="hide"></div>
+  <footer id="composer" class="hide">
+    <textarea id="in" rows="1" placeholder="输入消息…"></textarea>
+    <button id="stop" class="hide">停止</button>
+    <button id="send">发送</button>
+  </footer>
+</div>
+<script>
+(function(){
+  'use strict';
+  var qs = new URLSearchParams(location.search);
+  var TOKEN = qs.get('token') || '';
+  var WORKSPACE = qs.get('workspace') || '';
+  var sid = null, running = false, lastSeq = -1, timer = null, busy = false;
+
+  function el(id){ return document.getElementById(id); }
+  function uuid(){
+    var b = new Uint8Array(16); (crypto.getRandomValues ? crypto.getRandomValues(b) : 0);
+    b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+    var h = []; for (var i=0;i<16;i++) h.push(('0'+b[i].toString(16)).slice(-2));
+    return h.slice(0,4).join('')+'-'+h.slice(4,6).join('')+'-'+h.slice(6,8).join('')+'-'+h.slice(8,10).join('')+'-'+h.slice(10).join('');
+  }
+  function tz(){ try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai'; } catch(e){ return 'Asia/Shanghai'; } }
+
+  function rpc(method, args){
+    return fetch('/api/' + method, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type:'client-request', rpcId: uuid(), method: method, payload: { args: args || {} } })
+    }).then(function(r){
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function(env){
+      if (!env.result) throw new Error('bad envelope');
+      if (env.result.ok === false) {
+        var e = env.result.error || {};
+        throw new Error((e.message || 'RPC failed'));
+      }
+      return env.result.value;
+    });
+  }
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]; }); }
+  function textOf(content){
+    if (!content) return '';
+    if (typeof content === 'string') return content;
+    if (!Array.isArray(content)) return JSON.stringify(content);
+    var out = '';
+    for (var i=0;i<content.length;i++){
+      var p = content[i] || {};
+      if (p.type === 'text') out += p.text || '';
+      else if (p.type === 'file') out += '[文件 ' + (p.name || '') + ']';
+      else out += '[' + (p.type || '?') + ']';
+    }
+    return out;
+  }
+
+  // ---------- 列表 ----------
+  function renderList(items){
+    var box = el('list');
+    if (!items || !items.length) { box.innerHTML = '<div class="empty">还没有会话<br>点右上角 ＋ 新建</div>'; return; }
+    items.sort(function(a,b){ return (b.updatedAt||0) - (a.updatedAt||0); });
+    var h = '';
+    for (var i=0;i<items.length;i++){
+      var it = items[i] || {};
+      var pr = (it.projections && it.projections.values) || {};
+      var title = pr.title || (it.blank ? '新会话' : '未命名会话');
+      var when = it.updatedAt ? new Date(it.updatedAt).toLocaleString('zh-CN', {hour12:false, month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+      h += '<div class="row" data-id="' + esc(it.sessionId) + '">' +
+             '<div class="tt"><span class="dot' + (it.running ? ' run' : '') + '"></span> ' + esc(title) + '</div>' +
+             '<div class="mt"><span>' + esc(when) + '</span><span>' + (it.running ? '运行中' : '空闲') + '</span></div>' +
+           '</div>';
+    }
+    box.innerHTML = h;
+    var rows = box.querySelectorAll('.row');
+    for (var j=0;j<rows.length;j++){
+      rows[j].addEventListener('click', function(){ openSession(this.getAttribute('data-id')); });
+    }
+  }
+
+  function loadList(){
+    el('list').classList.remove('hide');
+    el('chat').classList.add('hide');
+    el('composer').classList.add('hide');
+    el('back').classList.add('hide');
+    el('title').textContent = 'DeepSeek Harness';
+    sid = null; stopPoll();
+    rpc('session/list', { _request: {} }).then(function(v){ renderList(v.items || []); })
+      .catch(function(e){ el('list').innerHTML = '<div class="empty err">列表加载失败：' + esc(e.message) + '</div>'; });
+  }
+
+  // ---------- 会话 ----------
+  function openSession(id){
+    sid = id; lastSeq = -1;
+    el('list').classList.add('hide');
+    el('chat').classList.remove('hide');
+    el('composer').classList.remove('hide');
+    el('back').classList.remove('hide');
+    el('chat').innerHTML = '<div class="empty">加载中…</div>';
+    el('title').textContent = '会话';
+    refresh(true);
+  }
+
+  function findSummary(items, id){
+    for (var i=0;i<items.length;i++) if (items[i].sessionId === id) return items[i];
+    return null;
+  }
+
+  function refresh(full){
+    if (!sid) return;
+    rpc('session/list', { _request: {} }).then(function(v){
+      var items = v.items || [];
+      var it = findSummary(items, sid);
+      if (it){
+        var pr = (it.projections && it.projections.values) || {};
+        el('title').textContent = pr.title || '会话';
+        setRunning(!!it.running);
+      }
+      return page(it);
+    }).catch(function(e){
+      if (full) el('chat').innerHTML = '<div class="empty err">' + esc(e.message) + '</div>';
+    });
+  }
+
+  function page(summary){
+    var seq = summary && summary.projections && summary.projections.asOfSeq;
+    if (typeof seq !== 'number') seq = 0;
+    if (seq === lastSeq) return Promise.resolve();
+    lastSeq = seq;
+    return rpc('session/page', { request: {
+      address: { kind:'session', sessionId: sid },
+      throughSeq: seq === 0 ? -1 : seq,
+      maxMessages: 40
+    }}).then(function(v){
+      renderEvents(v.records || []);
+    });
+  }
+
+  function renderEvents(records){
+    var chat = el('chat');
+    var atBottom = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 80;
+    for (var i=0;i<records.length;i++){
+      var rec = records[i]; var ev = rec && rec.event;
+      if (!ev || typeof ev.seq === 'number' && ev.seq <= lastRendered) continue;
+      if (typeof ev.seq === 'number') lastRendered = ev.seq;
+      var node = renderEvent(ev);
+      if (node) chat.appendChild(node);
+    }
+    if (atBottom) chat.scrollTop = chat.scrollHeight;
+  }
+  var lastRendered = -1;
+
+  function renderEvent(ev){
+    var d = ev.data || {};
+    var wrap;
+    switch (ev.type){
+      case 'user/message':
+        wrap = document.createElement('div');
+        wrap.className = 'msg user';
+        wrap.innerHTML = '<div class="bd">' + esc(textOf(d.content) || d.text || '') + '</div>';
+        return wrap;
+      case 'assistant/message':
+        var txt = textOf(d.message && d.message.content) || d.text || streamText(d.stream);
+        if (!txt) return null;
+        wrap = document.createElement('div');
+        wrap.className = 'msg bot';
+        wrap.innerHTML = '<div class="bd">' + esc(txt) + '</div>';
+        return wrap;
+      case 'tool/call':
+      case 'tool/ptc-dispatch':
+        wrap = document.createElement('div');
+        wrap.className = 'tool';
+        var args = d.arguments ? JSON.stringify(d.arguments) : '';
+        if (args.length > 400) args = args.slice(0, 400) + '…';
+        wrap.innerHTML = '<span class="nm">⚙ ' + esc(d.name || 'tool') + '</span>' +
+          (d.isError ? ' <span class="err">失败</span>' : '') +
+          (args ? '<pre>' + esc(args) + '</pre>' : '');
+        return wrap;
+      case 'turn/end':
+        var kind = (d.reason && d.reason.kind) || 'ok';
+        wrap = document.createElement('div');
+        wrap.className = 'sys' + (kind === 'error' ? ' err' : '');
+        var msg = kind === 'error' && d.reason.error ? d.reason.error.message : (kind === 'ok' ? '完成' : kind);
+        wrap.textContent = msg;
+        return wrap;
+      default:
+        return null;
+    }
+  }
+
+  function streamText(stream){
+    if (!Array.isArray(stream)) return '';
+    var out = '';
+    for (var i=0;i<stream.length;i++){
+      var f = stream[i] || {};
+      if (f.type === 'chunk' && f.chunk && f.chunk.type === 'text') out += f.chunk.text || '';
+      if (f.type === 'text') out += f.text || '';
+    }
+    return out;
+  }
+
+  function setRunning(on){
+    running = on;
+    el('stop').classList.toggle('hide', !on);
+    el('send').disabled = on && false;
+    if (on) startPoll(); else { stopPoll(); refresh(false); }
+  }
+
+  function startPoll(){ stopPoll(); timer = setInterval(function(){ refresh(false); }, 1200); }
+  function stopPoll(){ if (timer){ clearInterval(timer); timer = null; } }
+
+  function send(){
+    var box = el('in'); var text = box.value.trim();
+    if (!text || busy) return;
+    busy = true; el('send').disabled = true;
+    var req = { request: {
+      requestId: uuid(), sessionId: sid, mode: 'queue',
+      content: [{ type:'text', text: text }],
+      clientTimeZone: tz()
+    }};
+    if (WORKSPACE) req.request.workspacePath = WORKSPACE;
+    rpc('session/prompt', req).then(function(){
+      box.value = ''; box.style.height = '';
+      setRunning(true);
+    }).catch(function(e){
+      var n = document.createElement('div'); n.className = 'sys err';
+      n.textContent = '发送失败：' + e.message; el('chat').appendChild(n);
+    }).then(function(){ busy = false; el('send').disabled = false; });
+  }
+
+  function stop(){
+    if (!sid) return;
+    rpc('session/cancel', { request: { sessionId: sid } }).catch(function(){});
+  }
+
+  function createSession(){
+    var req = { request: {} };
+    if (WORKSPACE) req.request.cwd = WORKSPACE;
+    rpc('session/create', req).then(function(v){
+      openSession(v.sessionId);
+    }).catch(function(e){
+      alert('新建失败：' + e.message);
+    });
+  }
+
+  // ---------- 绑定 ----------
+  el('back').addEventListener('click', loadList);
+  el('new').addEventListener('click', createSession);
+  el('send').addEventListener('click', send);
+  el('stop').addEventListener('click', stop);
+  el('in').addEventListener('input', function(){
+    this.style.height = 'auto'; this.style.height = Math.min(120, this.scrollHeight) + 'px';
+  });
+  el('in').addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); }
+  });
+
+  // ---------- 启动 ----------
+  function boot(){
+    var chain = Promise.resolve();
+    if (TOKEN){
+      chain = fetch('/?token=' + encodeURIComponent(TOKEN), { credentials:'same-origin' })
+        .then(function(){ return null; }).catch(function(){ return null; });
+    }
+    chain.then(function(){ loadList(); });
+  }
+  boot();
+})();
+</script>
+</body></html>

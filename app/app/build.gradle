@@ -1,0 +1,33 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.dsh.runner'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.dsh.runner"
+        // targetSdk 28：Android 10+ 只允许 targetSdk<29 的应用在私有数据目录执行可执行文件
+        minSdk 26
+        targetSdk 28
+        versionCode 1
+        versionName "0.1.0"
+        ndk { abiFilters 'arm64-v8a' }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    packagingOptions {
+        // 素材原样打包，不压缩（bootstrap 本身就是压缩包）
+        jniLibs { useLegacyPackaging = true }
+    }
+}

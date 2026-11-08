@@ -1,0 +1,31 @@
+# ---------- 构建产物 ----------
+build/
+.gradle/
+*.iml
+local.properties
+
+# ---------- 需要脚本生成的大体积运行时（scripts/fetch-runtime.sh）----------
+app/app/src/main/assets/node/
+app/app/src/main/assets/bootstrap.zip
+app/app/src/main/assets/npm.zip
+app/app/src/main/assets/purge/
+
+# ---------- 下载 / 解包中间产物 ----------
+dist/
+t/
+scratch/
+
+# ---------- 二进制与截图 ----------
+*.apk
+*.deb
+*.zip
+*.png
+*.jpg
+logcat.txt
+*.log
+
+# ---------- 系统 / 编辑器 ----------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
