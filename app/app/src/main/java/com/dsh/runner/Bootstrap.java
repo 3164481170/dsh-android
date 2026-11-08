@@ -177,6 +177,83 @@ final class Bootstrap {
         installMiniClient();
         installWorkspace();
         installPurge();
+        installPurgePlugin();
+    }
+
+
+    /** 把 dsh-purge 作为 profile bundle 装进 web profile，让它在插件库里可见并真正加载。 */
+    void installPurgePlugin() {
+        try {
+            File profile = new File(new File(home, ".dsh/profiles"), "web");
+            File nm = new File(profile, "node_modules");
+            File dest = new File(nm, "dsh-purge");
+            File srcPkg = new File(new File(home, ".dsh/assets-src"), "purge");
+            if (!srcPkg.isDirectory()) { log.line("purge 插件源缺失，跳过"); return; }
+            if (!dest.isDirectory() || dest.lastModified() < srcPkg.lastModified()) {
+                deleteTree(dest);
+                nm.mkdirs();
+                copyTree(srcPkg, dest);
+            }
+            File pkgJson = new File(profile, "package.json");
+            if (!pkgJson.isFile()) return;
+            String s = readText(pkgJson);
+            if (!s.contains("\"dsh-purge\"")) {
+                int b = s.indexOf("\"bundles\"");
+                int open = b < 0 ? -1 : s.indexOf('[', b);
+                int close = open < 0 ? -1 : s.indexOf(']', open);
+                if (close > 0) {
+                    String head = s.substring(0, close).trim();
+                    String tail = s.substring(close);
+                    s = head + (head.endsWith("[") ? "" : ",") + "\n        \"dsh-purge\"\n      " + tail;
+                }
+                int d = s.indexOf("\"dependencies\"");
+                int dop = d < 0 ? -1 : s.indexOf('{', d);
+                int dcl = dop < 0 ? -1 : s.indexOf('}', dop);
+                if (dcl > 0) {
+                    String head = s.substring(0, dcl).trim();
+                    String tail = s.substring(dcl);
+                    s = head + (head.endsWith("{") ? "" : ",") + "\n    \"dsh-purge\": \"1.1.71\"\n  " + tail;
+                }
+                writeText(pkgJson, s);
+                log.line("dsh-purge 已注册为 profile bundle");
+            } else {
+                log.line("dsh-purge 已注册（跳过）");
+            }
+        } catch (Throwable t) {
+            log.line("dsh-purge 插件注册失败（继续）: " + t);
+        }
+    }
+
+    private static String readText(File f) throws IOException {
+        byte[] raw = new byte[(int) f.length()];
+        try (FileInputStream in = new FileInputStream(f)) { in.read(raw); }
+        return new String(raw, "UTF-8");
+    }
+
+    private static void writeText(File f, String s) throws IOException {
+        try (FileOutputStream out = new FileOutputStream(f)) { out.write(s.getBytes("UTF-8")); }
+    }
+
+    private static void deleteTree(File f) {
+        if (f == null || !f.exists()) return;
+        File[] kids = f.listFiles();
+        if (kids != null) for (File k : kids) deleteTree(k);
+        f.delete();
+    }
+
+    private void copyTree(File from, File to) throws IOException {
+        if (from.isDirectory()) {
+            to.mkdirs();
+            File[] kids = from.listFiles();
+            if (kids != null) for (File k : kids) copyTree(k, new File(to, k.getName()));
+        } else {
+            to.getParentFile().mkdirs();
+            try (InputStream in = new FileInputStream(from); OutputStream out = new FileOutputStream(to)) {
+                byte[] buf = new byte[1 << 16];
+                int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            }
+        }
     }
 
     void installDsh() throws Exception {
