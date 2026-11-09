@@ -4,6 +4,18 @@
 
 ![界面](docs/img/app-ui.png)
 
+## 下载
+
+预编译 APK（arm64-v8a，debug 签名，不含本地扩展载荷）：
+
+**[dsh-android-0.1.0-debug.apk](https://github.com/3164481170/dsh-android/releases/download/v0.1.0/dsh-android-0.1.0-debug.apk)** — 73.4 MB · [发布说明](https://github.com/3164481170/dsh-android/releases/tag/v0.1.0)
+
+```
+SHA256  3343b4022cc6ffae0da2b5e2a8a77cabaef6d603c3c0f90b76631e709dc93634
+```
+
+也可以自行构建，见下方「构建」。
+
 ## 它是什么
 
 APK 内置了一套 ARM64 的 Linux 运行时（Termux bootstrap + node + npm）和 dsh 本体，首次启动时摊到应用私有目录，然后用前台服务把 `dsh web` 拉起来，WebView 直接连本机 `127.0.0.1` 加载界面。
